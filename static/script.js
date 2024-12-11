@@ -7,7 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultSection = document.getElementById('resultSection');
     const diseaseType = document.getElementById('diseaseType');
     const diseaseDescription = document.getElementById('diseaseDescription');
+    const confidenceLevel = document.getElementById('confidenceLevel');
     const recommendations = document.getElementById('recommendations');
+
+    const confidenceThreshold = 0.6; // Set a threshold for confidence (60%)
 
     // Click to upload
     uploadBox.addEventListener('click', () => {
@@ -81,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 diseaseType.textContent = "Invalid Image";
                 diseaseDescription.textContent = "The uploaded image does not appear to be a plant.";
                 recommendations.innerHTML = "";
+                confidenceLevel.textContent = ""; // Clear confidence level for invalid images
             } else {
                 const results = {
                     'Healthy': {
@@ -117,6 +121,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 diseaseType.textContent = data.prediction;
                 diseaseDescription.textContent = result.description;
 
+                // Handle confidence level
+                const confidence = data.confidence;
+                if (confidence >= confidenceThreshold) {
+                    confidenceLevel.textContent = `Confidence Level: ${Math.round(confidence * 100)}%`;
+                } else {
+                    confidenceLevel.textContent = "Confidence Level: Low (below threshold)";
+                }
+
                 recommendations.innerHTML = "";
 
                 result.recommendations.forEach(rec => {
@@ -131,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             diseaseType.textContent = "Error";
             diseaseDescription.textContent = "An error occurred while processing the image.";
         });
-    });  // <-- This closing brace is added here to fix the syntax error
+    });
 
     // Remove Image button functionality
     removeImageBtn.addEventListener('click', () => {
