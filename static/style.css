@@ -152,3 +152,16 @@ footer {
     color: #333;
     margin-top: 10px;
 }
+
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px 0;
+    font-size: 18px;
+    color: #666;
+}
+
+.hidden {
+    display: none;
+}
