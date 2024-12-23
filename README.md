@@ -76,12 +76,11 @@ PlantGuard is open-source and available under the [MIT License](LICENSE).
 ## Acknowledgements
 
 - This project uses [TensorFlow](https://www.tensorflow.org/) for machine learning.
-- The plant disease dataset was sourced from [Dataset Source].
-- Special thanks to [Contributor Name] for their valuable contributions to the project.
+- The plant disease dataset was sourced from [Dataset Source](kaggle.com).
 
 ## Developers
 
-- **Cedric Kent Centeno** – Developer and Maintainer
+- **Cedric Kent Centeno**
 
 ## Contact
 
