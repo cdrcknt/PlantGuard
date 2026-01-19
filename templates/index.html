@@ -2,57 +2,320 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PlantGuard - Plant Disease Detection</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PlantGuard — Deep Learning Plant Disease Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>PlantGuard</h1>
-            <p>Detect Plant Diseases</p>
-        </header>
-
-        <main>
-            <div class="upload-section">
-                <input type="file" id="imageUpload" accept="image/*" hidden>
-                <div class="upload-box" id="uploadBox">
-                    <img src="" alt="Uploaded Image" id="uploadedImage" class="hidden">
-                    <div class="upload-content">
-                        <i class="upload-icon">📤</i>
-                        <p>Click to Upload or Drag and Drop an Image</p>
+    <!-- ========== ONBOARDING SCREEN ========== -->
+    <div class="onboarding-screen" id="onboardingScreen">
+        <div class="onboarding-container">
+            <!-- Carousel -->
+            <div class="carousel" id="carousel">
+                <div class="carousel-track" id="carouselTrack">
+                    <div class="carousel-slide active">
+                        <img src="{{ url_for('static', filename='images/plantguard_logo.png') }}" alt="PlantGuard">
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="{{ url_for('static', filename='images/plantguard_NeutralIntelligence.png') }}" alt="Neural Intelligence">
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="{{ url_for('static', filename='images/plantguard_SimpleFastAccurate.png') }}" alt="Simple Fast Accurate">
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="{{ url_for('static', filename='images/plantguard_PrecisionDiagnosis.png') }}" alt="Precision Diagnosis">
                     </div>
                 </div>
-                <button id="analyzeBtn" class="analyze-btn hidden">Analyze Plant</button>
-                <button id="removeImageBtn" class="remove-image-btn hidden">Remove Image</button>
             </div>
-        
-            <div class="loading-spinner hidden" id="loadingSpinner">
-                <p>Loading... Please wait.</p>
+
+            <!-- Carousel Indicators -->
+            <div class="carousel-indicators" id="carouselIndicators">
+                <button class="indicator active" data-slide="0"></button>
+                <button class="indicator" data-slide="1"></button>
+                <button class="indicator" data-slide="2"></button>
+                <button class="indicator" data-slide="3"></button>
             </div>
+
+            <!-- Navigation Arrows -->
+            <button class="carousel-arrow carousel-prev" id="carouselPrev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </button>
+            <button class="carousel-arrow carousel-next" id="carouselNext">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+
+            <!-- Get Started Button -->
+            <div class="onboarding-footer">
+                <button class="btn-get-started" id="getStartedBtn">
+                    <span>Start Analyzing</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14"/>
+                        <path d="m12 5 7 7-7 7"/>
+                    </svg>
+                </button>
+                <p class="skip-text" id="skipBtn">or press <kbd>Enter</kbd> to continue</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MAIN APPLICATION ========== -->
+    <div class="app-wrapper hidden" id="appWrapper">
+        <div class="app-bg"></div>
         
-            <div class="result-section hidden" id="resultSection">
-                <h2>Analysis Results</h2>
-                <div class="result-card">
-                    <div class="result-icon" id="resultIcon">🌿</div>
-                    <div class="result-details">
-                        <h3 id="diseaseType">Loading...</h3>
-                        <p id="diseaseDescription">Analyzing your plant image...</p>
-                        <p id="confidenceLevel" style="font-family: 'Poppins', sans-serif; color: #333; margin-top: 10px;"></p>
+        <div class="app-container">
+            <!-- Header -->
+            <header class="header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <img src="{{ url_for('static', filename='images/plantguard_logo.png') }}" alt="PlantGuard" class="logo-img">
+                    </div>
+                    <div class="logo-text">
+                        <h1>PlantGuard</h1>
+                        <span class="tagline">Deep Learning Disease Detection</span>
                     </div>
                 </div>
-                <div class="recommendations" id="recommendations">
-                    <p id="prediction">Prediction will appear here.</p>
-                    <p id="confidence">Confidence will appear here.</p>
+                <div class="header-actions">
+                    <button class="btn-icon" id="infoBtn" title="About">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 16v-4"/>
+                            <path d="M12 8h.01"/>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Tech Stack Pills -->
+            <div class="tech-pills">
+                <span class="pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                    ResNet-18
+                </span>
+                <span class="pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    PyTorch
+                </span>
+                <span class="pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22c4-2 8-6 8-12 0-2-2-4-4-4-2.5 0-4 2-4 2s-1.5-2-4-2c-2 0-4 2-4 4 0 6 4 10 8 12z"/>
+                    </svg>
+                    3 Classes
+                </span>
+            </div>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- Upload Section -->
+                <section class="upload-section" id="uploadSection">
+                    <div class="upload-card">
+                        <div class="upload-zone" id="uploadZone">
+                            <input type="file" id="imageInput" accept="image/*" hidden>
+                            <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+                            
+                            <div class="upload-placeholder" id="uploadPlaceholder">
+                                <div class="upload-icon-wrapper">
+                                    <div class="upload-icon-bg"></div>
+                                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="17 8 12 3 7 8"/>
+                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                </div>
+                                <h3>Upload Plant Image</h3>
+                                <p>Drag & drop or tap to select a leaf photo</p>
+                                <div class="upload-formats">
+                                    <span>PNG</span>
+                                    <span>JPG</span>
+                                    <span>WEBP</span>
+                                </div>
+                            </div>
+                            
+                            <div class="preview-container hidden" id="previewContainer">
+                                <img src="" alt="Preview" id="previewImage">
+                                <button class="btn-remove" id="removeImage" title="Remove image">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="upload-actions">
+                            <button class="btn btn-secondary" id="cameraBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                    <circle cx="12" cy="13" r="4"/>
+                                </svg>
+                                <span>Camera</span>
+                            </button>
+                            <button class="btn btn-primary hidden" id="analyzeBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                                </svg>
+                                <span>Analyze</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Results Section -->
+                <section class="results-section hidden" id="resultsSection">
+                    <!-- Loading State -->
+                    <div class="loading-card hidden" id="loadingState">
+                        <div class="loading-visual">
+                            <div class="scanning-animation">
+                                <div class="scan-line"></div>
+                                <svg class="brain-svg" viewBox="0 0 64 64" fill="none">
+                                    <circle cx="20" cy="20" r="3" fill="currentColor" opacity="0.5"/>
+                                    <circle cx="44" cy="20" r="3" fill="currentColor" opacity="0.5"/>
+                                    <circle cx="32" cy="32" r="4" fill="currentColor" opacity="0.7"/>
+                                    <circle cx="20" cy="44" r="3" fill="currentColor" opacity="0.5"/>
+                                    <circle cx="44" cy="44" r="3" fill="currentColor" opacity="0.5"/>
+                                    <line x1="20" y1="20" x2="32" y2="32" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+                                    <line x1="44" y1="20" x2="32" y2="32" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+                                    <line x1="20" y1="44" x2="32" y2="32" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+                                    <line x1="44" y1="44" x2="32" y2="32" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <h3>Analyzing...</h3>
+                        <p>Running inference through ResNet-18</p>
+                        <div class="loading-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Content -->
+                    <div class="results-card hidden" id="resultsContent">
+                        <div class="result-banner">
+                            <div class="result-emoji" id="resultIcon">🌿</div>
+                            <div class="result-info">
+                                <h2 id="resultLabel">Healthy</h2>
+                                <span class="severity-pill" id="severityBadge">
+                                    <span class="severity-dot"></span>
+                                    <span class="severity-text">No Issues</span>
+                                </span>
+                            </div>
+                            <div class="confidence-ring" id="confidenceRing">
+                                <svg viewBox="0 0 100 100">
+                                    <circle class="ring-bg" cx="50" cy="50" r="45"/>
+                                    <circle class="ring-fill" cx="50" cy="50" r="45" id="ringFill"/>
+                                </svg>
+                                <span class="confidence-text" id="confidenceValue">0%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="result-description" id="resultDescription">
+                            <p>Your plant appears to be healthy.</p>
+                        </div>
+
+                        <!-- Class Probabilities -->
+                        <div class="probabilities-section" id="probabilitiesCard">
+                            <h4>Class Probabilities</h4>
+                            <div class="probability-list" id="probabilityBars"></div>
+                        </div>
+
+                        <!-- Causes -->
+                        <div class="info-section causes hidden" id="causesCard">
+                            <h4>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                Possible Causes
+                            </h4>
+                            <ul id="causesList"></ul>
+                        </div>
+                        
+                        <!-- Recommendations -->
+                        <div class="info-section recommendations" id="recommendationsCard">
+                            <h4>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                                Recommendations
+                            </h4>
+                            <ul id="recommendationsList"></ul>
+                        </div>
+                        
+                        <button class="btn btn-outline-primary" id="analyzeAnotherBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="1 4 1 10 7 10"/>
+                                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                            </svg>
+                            Analyze Another
+                        </button>
+                    </div>
+                </section>
+            </main>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p>
+                    PlantGuard &copy; <span id="currentYear"></span>
+                    <span class="dot">·</span>
+                    Powered by PyTorch
+                </p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal-overlay hidden" id="aboutModal">
+        <div class="modal">
+            <button class="modal-close" id="closeModal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+            <div class="modal-content">
+                <img src="{{ url_for('static', filename='images/plantguard_logo.png') }}" alt="PlantGuard" class="modal-banner">
+                <h2>About PlantGuard</h2>
+                <p>PlantGuard uses a ResNet-18 convolutional neural network trained on plant disease images from Kaggle to detect common leaf diseases.</p>
+                <div class="modal-specs">
+                    <div class="spec">
+                        <span class="spec-label">Model</span>
+                        <span class="spec-value">ResNet-18</span>
+                    </div>
+                    <div class="spec">
+                        <span class="spec-label">Framework</span>
+                        <span class="spec-value">PyTorch</span>
+                    </div>
+                    <div class="spec">
+                        <span class="spec-label">Input Size</span>
+                        <span class="spec-value">128×128</span>
+                    </div>
+                    <div class="spec">
+                        <span class="spec-label">Classes</span>
+                        <span class="spec-value">3</span>
+                    </div>
+                </div>
+                <div class="modal-classes">
+                    <span class="class-chip healthy">🌿 Healthy</span>
+                    <span class="class-chip powdery">🍂 Powdery</span>
+                    <span class="class-chip rust">🍁 Rust</span>
                 </div>
             </div>
-        </main>
-        
-
-        <footer>
-            <p>© 2024 PlantGuard | cdrcknt</p>
-        </footer>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>

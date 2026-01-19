@@ -1,192 +1,655 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const uploadBox = document.getElementById('uploadBox');
-    const imageUpload = document.getElementById('imageUpload');
-    const uploadedImage = document.getElementById('uploadedImage');
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const removeImageBtn = document.getElementById('removeImageBtn');
-    const resultSection = document.getElementById('resultSection');
-    const diseaseType = document.getElementById('diseaseType');
-    const diseaseDescription = document.getElementById('diseaseDescription');
-    const confidenceLevel = document.getElementById('confidenceLevel');
-    const recommendations = document.getElementById('recommendations');
-    const loadingSpinner = document.getElementById('loadingSpinner');
+/**
+ * PlantGuard - Deep Learning Plant Disease Detection
+ * Beautiful onboarding + main application
+ */
 
-    const confidenceThreshold = 0.6; // Set a threshold for confidence
-    const apiUrl = `${window.location.origin}/predict`; // Use dynamic URL
+(function() {
+    'use strict';
 
-    // Click to upload
-    uploadBox.addEventListener('click', () => {
-        imageUpload.click();
-    });
+    // ==========================================================================
+    // Configuration
+    // ==========================================================================
+    const CONFIG = {
+        apiUrl: `${window.location.origin}/predict`,
+        maxFileSize: 10 * 1024 * 1024,
+        allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'],
+        autoSlideInterval: 5000
+    };
 
-    // Drag and drop functionality
-    uploadBox.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadBox.classList.add('dragover');
-    });
+    const DISEASE_ICONS = {
+        'Healthy': '🌿',
+        'Powdery': '🍂',
+        'Rust': '🍁',
+        'Uncertain': '❓',
+        'Error': '⚠️'
+    };
 
-    uploadBox.addEventListener('dragleave', () => {
-        uploadBox.classList.remove('dragover');
-    });
+    const SEVERITY_MAP = {
+        'none': { text: 'No Issues', class: 'severity-none' },
+        'moderate': { text: 'Moderate', class: 'severity-moderate' },
+        'high': { text: 'High Severity', class: 'severity-high' },
+        'unknown': { text: 'Unknown', class: '' }
+    };
 
-    uploadBox.addEventListener('drop', (e) => {
-        e.preventDefault();
-        uploadBox.classList.remove('dragover');
-        handleFiles(e.dataTransfer.files);
-    });
+    // ==========================================================================
+    // State
+    // ==========================================================================
+    let currentSlide = 0;
+    let autoSlideTimer = null;
+    let currentFile = null;
 
-    // File selection
-    imageUpload.addEventListener('change', (e) => {
-        handleFiles(e.target.files);
-    });
+    // ==========================================================================
+    // DOM Elements
+    // ==========================================================================
+    const $ = (id) => document.getElementById(id);
+    
+    const elements = {
+        // Onboarding
+        onboardingScreen: $('onboardingScreen'),
+        carousel: $('carousel'),
+        carouselTrack: $('carouselTrack'),
+        carouselPrev: $('carouselPrev'),
+        carouselNext: $('carouselNext'),
+        carouselIndicators: $('carouselIndicators'),
+        getStartedBtn: $('getStartedBtn'),
+        skipBtn: $('skipBtn'),
+        
+        // App
+        appWrapper: $('appWrapper'),
+        
+        // Upload
+        uploadZone: $('uploadZone'),
+        imageInput: $('imageInput'),
+        cameraInput: $('cameraInput'),
+        uploadPlaceholder: $('uploadPlaceholder'),
+        previewContainer: $('previewContainer'),
+        previewImage: $('previewImage'),
+        removeImage: $('removeImage'),
+        cameraBtn: $('cameraBtn'),
+        analyzeBtn: $('analyzeBtn'),
+        
+        // Results
+        resultsSection: $('resultsSection'),
+        loadingState: $('loadingState'),
+        resultsContent: $('resultsContent'),
+        resultIcon: $('resultIcon'),
+        resultLabel: $('resultLabel'),
+        severityBadge: $('severityBadge'),
+        confidenceValue: $('confidenceValue'),
+        ringFill: $('ringFill'),
+        resultDescription: $('resultDescription'),
+        probabilitiesCard: $('probabilitiesCard'),
+        probabilityBars: $('probabilityBars'),
+        causesCard: $('causesCard'),
+        causesList: $('causesList'),
+        recommendationsCard: $('recommendationsCard'),
+        recommendationsList: $('recommendationsList'),
+        analyzeAnotherBtn: $('analyzeAnotherBtn'),
+        
+        // Modal
+        infoBtn: $('infoBtn'),
+        aboutModal: $('aboutModal'),
+        closeModal: $('closeModal'),
+        
+        // Other
+        currentYear: $('currentYear')
+    };
 
-    // Handle uploaded files
-    function handleFiles(files) {
-        if (files.length > 0) {
-            const file = files[0];
-            if (file.type.startsWith('image/')) { // Ensure it's an image file
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    uploadedImage.src = e.target.result;
-                    uploadedImage.classList.remove('hidden');
-                    analyzeBtn.classList.remove('hidden');
-                    removeImageBtn.classList.remove('hidden');
-                    clearResults(); // Clear previous results
-                };
-                reader.readAsDataURL(file);
-            } else {
-                alert("Please upload a valid image file.");
+    // ==========================================================================
+    // Initialization
+    // ==========================================================================
+    function init() {
+        // Set current year
+        if (elements.currentYear) {
+            elements.currentYear.textContent = new Date().getFullYear();
+        }
+
+        // Check if user has seen onboarding
+        const hasSeenOnboarding = localStorage.getItem('plantguard-onboarding-seen');
+        
+        if (hasSeenOnboarding) {
+            skipOnboarding();
+        } else {
+            initCarousel();
+        }
+
+        // Bind main app events
+        bindAppEvents();
+        
+        console.log('🌿 PlantGuard initialized');
+    }
+
+    // ==========================================================================
+    // Onboarding & Carousel
+    // ==========================================================================
+    function initCarousel() {
+        const slides = document.querySelectorAll('.carousel-slide');
+        const indicators = document.querySelectorAll('.indicator');
+        
+        // Arrow navigation
+        elements.carouselPrev?.addEventListener('click', () => {
+            goToSlide(currentSlide - 1);
+            resetAutoSlide();
+        });
+        
+        elements.carouselNext?.addEventListener('click', () => {
+            goToSlide(currentSlide + 1);
+            resetAutoSlide();
+        });
+        
+        // Indicator clicks
+        indicators.forEach((indicator, index) => {
+            indicator.addEventListener('click', () => {
+                goToSlide(index);
+                resetAutoSlide();
+            });
+        });
+        
+        // Get Started button
+        elements.getStartedBtn?.addEventListener('click', completeOnboarding);
+        elements.skipBtn?.addEventListener('click', completeOnboarding);
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (elements.onboardingScreen?.classList.contains('hidden')) return;
+            
+            if (e.key === 'ArrowLeft') {
+                goToSlide(currentSlide - 1);
+                resetAutoSlide();
+            } else if (e.key === 'ArrowRight') {
+                goToSlide(currentSlide + 1);
+                resetAutoSlide();
+            } else if (e.key === 'Enter') {
+                completeOnboarding();
             }
+        });
+        
+        // Touch/swipe support
+        let touchStartX = 0;
+        let touchEndX = 0;
+        
+        elements.carousel?.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+        
+        elements.carousel?.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, { passive: true });
+        
+        function handleSwipe() {
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) {
+                    goToSlide(currentSlide + 1);
+                } else {
+                    goToSlide(currentSlide - 1);
+                }
+                resetAutoSlide();
+            }
+        }
+        
+        // Start auto-slide
+        startAutoSlide();
+    }
+    
+    function goToSlide(index) {
+        const slides = document.querySelectorAll('.carousel-slide');
+        const indicators = document.querySelectorAll('.indicator');
+        const totalSlides = slides.length;
+        
+        // Wrap around
+        if (index < 0) index = totalSlides - 1;
+        if (index >= totalSlides) index = 0;
+        
+        currentSlide = index;
+        
+        // Move track
+        if (elements.carouselTrack) {
+            elements.carouselTrack.style.transform = `translateX(-${currentSlide * 100}%)`;
+        }
+        
+        // Update indicators
+        indicators.forEach((ind, i) => {
+            ind.classList.toggle('active', i === currentSlide);
+        });
+        
+        // Update slides
+        slides.forEach((slide, i) => {
+            slide.classList.toggle('active', i === currentSlide);
+        });
+    }
+    
+    function startAutoSlide() {
+        autoSlideTimer = setInterval(() => {
+            goToSlide(currentSlide + 1);
+        }, CONFIG.autoSlideInterval);
+    }
+    
+    function resetAutoSlide() {
+        clearInterval(autoSlideTimer);
+        startAutoSlide();
+    }
+    
+    function completeOnboarding() {
+        clearInterval(autoSlideTimer);
+        localStorage.setItem('plantguard-onboarding-seen', 'true');
+        
+        // Fade out onboarding
+        elements.onboardingScreen.style.opacity = '0';
+        elements.onboardingScreen.style.transition = 'opacity 0.4s ease-out';
+        
+        setTimeout(() => {
+            elements.onboardingScreen.classList.add('hidden');
+            elements.appWrapper.classList.remove('hidden');
+            elements.appWrapper.classList.add('entering');
+            
+            setTimeout(() => {
+                elements.appWrapper.classList.remove('entering');
+            }, 600);
+        }, 400);
+    }
+    
+    function skipOnboarding() {
+        elements.onboardingScreen?.classList.add('hidden');
+        elements.appWrapper?.classList.remove('hidden');
+    }
+
+    // ==========================================================================
+    // Main App Events
+    // ==========================================================================
+    function bindAppEvents() {
+        // Upload zone click
+        elements.uploadZone?.addEventListener('click', (e) => {
+            if (e.target === elements.removeImage || elements.removeImage?.contains(e.target)) {
+                return;
+            }
+            elements.imageInput?.click();
+        });
+
+        // File inputs
+        elements.imageInput?.addEventListener('change', handleFileSelect);
+        elements.cameraInput?.addEventListener('change', handleFileSelect);
+
+        // Camera button
+        elements.cameraBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            elements.cameraInput?.click();
+        });
+
+        // Drag and drop
+        elements.uploadZone?.addEventListener('dragover', handleDragOver);
+        elements.uploadZone?.addEventListener('dragleave', handleDragLeave);
+        elements.uploadZone?.addEventListener('drop', handleDrop);
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, preventDefaults);
+        });
+
+        // Remove image
+        elements.removeImage?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetUpload();
+        });
+
+        // Analyze
+        elements.analyzeBtn?.addEventListener('click', analyzeImage);
+
+        // Analyze another
+        elements.analyzeAnotherBtn?.addEventListener('click', resetToUpload);
+        
+        // Modal
+        elements.infoBtn?.addEventListener('click', () => {
+            elements.aboutModal?.classList.remove('hidden');
+        });
+        
+        elements.closeModal?.addEventListener('click', () => {
+            elements.aboutModal?.classList.add('hidden');
+        });
+        
+        elements.aboutModal?.addEventListener('click', (e) => {
+            if (e.target === elements.aboutModal) {
+                elements.aboutModal.classList.add('hidden');
+            }
+        });
+        
+        // ESC to close modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !elements.aboutModal?.classList.contains('hidden')) {
+                elements.aboutModal.classList.add('hidden');
+            }
+        });
+    }
+
+    // ==========================================================================
+    // Drag & Drop
+    // ==========================================================================
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function handleDragOver(e) {
+        preventDefaults(e);
+        elements.uploadZone?.classList.add('dragover');
+    }
+
+    function handleDragLeave(e) {
+        preventDefaults(e);
+        elements.uploadZone?.classList.remove('dragover');
+    }
+
+    function handleDrop(e) {
+        preventDefaults(e);
+        elements.uploadZone?.classList.remove('dragover');
+        
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+            processFile(files[0]);
         }
     }
 
-    // Clear previous analysis results
-    function clearResults() {
-        diseaseType.textContent = "";
-        diseaseDescription.textContent = "";
-        confidenceLevel.textContent = "";
-        recommendations.innerHTML = "";
-        resultSection.classList.add('hidden');
+    // ==========================================================================
+    // File Handling
+    // ==========================================================================
+    function handleFileSelect(e) {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            processFile(files[0]);
+        }
     }
 
-    // Analyze button functionality
-    analyzeBtn.addEventListener('click', () => {
-        const file = imageUpload.files[0];
-
-        if (!file) {
-            alert("Please upload an image first!");
+    function processFile(file) {
+        if (!CONFIG.allowedTypes.includes(file.type)) {
+            showNotification('Please upload a valid image file', 'error');
             return;
         }
 
-        // Prepare the file for the Flask API
-        const formData = new FormData();
-        formData.append('image', file);
+        if (file.size > CONFIG.maxFileSize) {
+            showNotification('File size must be less than 10MB', 'error');
+            return;
+        }
 
-        console.log("Sending request to:", apiUrl);
+        currentFile = file;
 
-        // Show loading state
-        loadingSpinner.classList.add('loading');
-        clearResults(); // Clear previous results
-        resultSection.classList.remove('hidden');
-        diseaseType.textContent = "Analyzing...";
-        diseaseDescription.textContent = "Please wait while we process the image...";
+        const reader = new FileReader();
+        reader.onload = (e) => showPreview(e.target.result);
+        reader.onerror = () => showNotification('Failed to read file', 'error');
+        reader.readAsDataURL(file);
+    }
 
-        fetch(apiUrl, {
-            method: "POST",
-            body: formData
-        })
-        .then(response => {
-            loadingSpinner.classList.remove('loading'); // Hide spinner
-            console.log('Response status:', response.status);
+    function showPreview(dataUrl) {
+        elements.previewImage.src = dataUrl;
+        elements.uploadPlaceholder?.classList.add('hidden');
+        elements.previewContainer?.classList.remove('hidden');
+        elements.analyzeBtn?.classList.remove('hidden');
+        hideResults();
+    }
+
+    function resetUpload() {
+        currentFile = null;
+        if (elements.imageInput) elements.imageInput.value = '';
+        if (elements.cameraInput) elements.cameraInput.value = '';
+        
+        elements.previewImage.src = '';
+        elements.previewContainer?.classList.add('hidden');
+        elements.uploadPlaceholder?.classList.remove('hidden');
+        elements.analyzeBtn?.classList.add('hidden');
+    }
+
+    function resetToUpload() {
+        resetUpload();
+        hideResults();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ==========================================================================
+    // Analysis
+    // ==========================================================================
+    async function analyzeImage() {
+        if (!currentFile) {
+            showNotification('Please upload an image first', 'error');
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const formData = new FormData();
+            formData.append('image', currentFile);
+
+            const response = await fetch(CONFIG.apiUrl, {
+                method: 'POST',
+                body: formData
+            });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`Server error: ${response.status}`);
             }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Received data:', data);
+
+            const data = await response.json();
+            console.log('Analysis result:', data);
             displayResults(data);
-        })
-        .catch(error => {
-            loadingSpinner.classList.remove('loading'); // Hide spinner
-            console.error("Error occurred while processing the image:", error);
-            showError("An error occurred while processing the image. Please try again.");
-        });
-    });
 
-    // Display results based on response
-    function displayResults(data) {
-        const confidence = data.confidence;
-
-        if (data.prediction === "Invalid Image") {
-            diseaseType.textContent = "Invalid Image";
-            diseaseDescription.textContent = "The uploaded image does not appear to be a plant.";
-            confidenceLevel.textContent = ""; // Clear confidence level
-        } else {
-            diseaseType.textContent = data.prediction;
-            diseaseDescription.textContent = getDescription(data.prediction);
-            
-            // Handle confidence level
-            if (confidence >= confidenceThreshold) {
-                confidenceLevel.textContent = `Confidence Level: ${Math.round(confidence * 100)}%`;
-                confidenceLevel.style.color = "green"; // High confidence
-            } else {
-                confidenceLevel.textContent = "Confidence Level: Low (below threshold)";
-                confidenceLevel.style.color = "red"; // Low confidence
-            }
-
-            recommendations.innerHTML = getRecommendations(data.prediction);
+        } catch (error) {
+            console.error('Analysis error:', error);
+            displayError(error.message);
         }
     }
 
-    // Get description based on prediction
-    function getDescription(prediction) {
+    // ==========================================================================
+    // Results Display
+    // ==========================================================================
+    function showLoading() {
+        elements.resultsSection?.classList.remove('hidden');
+        elements.loadingState?.classList.remove('hidden');
+        elements.resultsContent?.classList.add('hidden');
+        
+        setTimeout(() => {
+            elements.resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+
+    function hideLoading() {
+        elements.loadingState?.classList.add('hidden');
+    }
+
+    function hideResults() {
+        elements.resultsSection?.classList.add('hidden');
+        elements.loadingState?.classList.add('hidden');
+        elements.resultsContent?.classList.add('hidden');
+    }
+
+    function displayResults(data) {
+        hideLoading();
+        
+        const prediction = data.prediction || 'Unknown';
+        const confidence = data.confidence || 0;
+        const severity = data.severity || 'unknown';
+        const description = data.description || getDefaultDescription(prediction);
+        const causes = data.causes || [];
+        const recommendations = data.recommendations || getDefaultRecommendations(prediction);
+        const allProbabilities = data.all_probabilities || {};
+
+        // Icon
+        elements.resultIcon.textContent = data.icon || DISEASE_ICONS[prediction] || '🌱';
+
+        // Label
+        elements.resultLabel.textContent = formatPredictionLabel(prediction);
+
+        // Severity
+        const severityInfo = SEVERITY_MAP[severity] || SEVERITY_MAP.unknown;
+        elements.severityBadge.className = `severity-pill ${severityInfo.class}`;
+        elements.severityBadge.querySelector('.severity-text').textContent = severityInfo.text;
+
+        // Confidence ring
+        const confidencePercent = Math.round(confidence * 100);
+        elements.confidenceValue.textContent = `${confidencePercent}%`;
+        
+        // Animate ring (circumference = 2 * PI * 45 = ~283)
+        const circumference = 283;
+        const offset = circumference - (circumference * confidence);
+        setTimeout(() => {
+            elements.ringFill.style.strokeDashoffset = offset;
+        }, 100);
+
+        // Description
+        elements.resultDescription.innerHTML = `<p>${description}</p>`;
+
+        // Probabilities
+        renderProbabilityBars(allProbabilities);
+
+        // Causes
+        if (causes.length > 0) {
+            renderList(elements.causesList, causes);
+            elements.causesCard?.classList.remove('hidden');
+        } else {
+            elements.causesCard?.classList.add('hidden');
+        }
+
+        // Recommendations
+        if (recommendations.length > 0) {
+            renderList(elements.recommendationsList, recommendations);
+            elements.recommendationsCard?.classList.remove('hidden');
+        }
+
+        // Show results
+        elements.resultsContent?.classList.remove('hidden');
+        
+        setTimeout(() => {
+            elements.resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+
+    function displayError(message) {
+        hideLoading();
+
+        elements.resultIcon.textContent = '⚠️';
+        elements.resultLabel.textContent = 'Analysis Failed';
+        
+        elements.severityBadge.className = 'severity-pill';
+        elements.severityBadge.querySelector('.severity-text').textContent = 'Error';
+
+        elements.confidenceValue.textContent = '0%';
+        elements.ringFill.style.strokeDashoffset = 283;
+
+        elements.resultDescription.innerHTML = `<p>We couldn't analyze your image. ${message}. Please try again.</p>`;
+
+        elements.probabilitiesCard?.classList.add('hidden');
+        elements.causesCard?.classList.add('hidden');
+        elements.recommendationsCard?.classList.add('hidden');
+
+        elements.resultsContent?.classList.remove('hidden');
+    }
+
+    function renderProbabilityBars(probabilities) {
+        const container = elements.probabilityBars;
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const icons = { 'Healthy': '🌿', 'Powdery': '🍂', 'Rust': '🍁' };
+        const classes = { 'Healthy': 'healthy', 'Powdery': 'powdery', 'Rust': 'rust' };
+
+        const sorted = Object.entries(probabilities).sort((a, b) => b[1] - a[1]);
+
+        sorted.forEach(([name, prob], index) => {
+            const percent = Math.round(prob * 100);
+            const item = document.createElement('div');
+            item.className = 'probability-item';
+            
+            item.innerHTML = `
+                <div class="probability-header">
+                    <span class="probability-name">
+                        <span>${icons[name] || '🌱'}</span>
+                        ${name}
+                    </span>
+                    <span class="probability-percent">${percent}%</span>
+                </div>
+                <div class="probability-bar">
+                    <div class="probability-fill ${classes[name] || ''}" style="width: 0%"></div>
+                </div>
+            `;
+
+            container.appendChild(item);
+
+            setTimeout(() => {
+                const fill = item.querySelector('.probability-fill');
+                if (fill) fill.style.width = `${percent}%`;
+            }, 200 + index * 100);
+        });
+    }
+
+    function renderList(container, items) {
+        if (!container) return;
+        container.innerHTML = items.map(item => `<li>${item}</li>`).join('');
+    }
+
+    // ==========================================================================
+    // Utilities
+    // ==========================================================================
+    function formatPredictionLabel(prediction) {
+        const labels = {
+            'Healthy': 'Healthy Plant',
+            'Powdery': 'Powdery Mildew',
+            'Rust': 'Rust Disease',
+            'Uncertain': 'Uncertain Result'
+        };
+        return labels[prediction] || prediction;
+    }
+
+    function getDefaultDescription(prediction) {
         const descriptions = {
-            'Healthy': 'Your plant looks healthy and shows no signs of disease.',
-            'Powdery': 'Your plant is affected by Powdery Mildew, a common fungal disease.',
-            'Rust': 'Your plant shows signs of Rust, a fungal plant disease.',
+            'Healthy': 'Your plant appears to be in good health with no visible signs of disease.',
+            'Powdery': 'Your plant shows signs of Powdery Mildew, a common fungal disease.',
+            'Rust': 'Your plant appears to be affected by Rust, a fungal disease.',
+            'Uncertain': 'The analysis was inconclusive. Please try with a clearer image.'
         };
-        return descriptions[prediction] || 'Unknown condition.';
+        return descriptions[prediction] || 'Analysis complete.';
     }
 
-    // Get recommendations based on prediction
-    function getRecommendations(prediction) {
-        const recommendationsList = {
-            'Healthy': [
-                'Continue your current care routine.',
-                'Maintain good watering and sunlight practices.',
-                'Monitor the plant for any changes.'
-            ],
-            'Powdery': [
-                'Improve air circulation around the plant.',
-                'Reduce humidity and avoid overhead watering.',
-                'Use fungicide specifically for powdery mildew.'
-            ],
-            'Rust': [
-                'Remove and destroy infected plant parts.',
-                'Apply appropriate fungicide.',
-                'Avoid wetting leaves when watering.'
-            ]
+    function getDefaultRecommendations(prediction) {
+        const recs = {
+            'Healthy': ['Continue regular care', 'Ensure adequate sunlight', 'Monitor for changes'],
+            'Powdery': ['Improve air circulation', 'Reduce humidity', 'Apply fungicide'],
+            'Rust': ['Remove infected leaves', 'Apply fungicide', 'Avoid wetting leaves']
         };
-
-        return recommendationsList[prediction]?.map(rec => `<p>• ${rec}</p>`).join('') || '';
+        return recs[prediction] || [];
     }
 
-    // Show error message
-    function showError(message) {
-        diseaseType.textContent = "Error";
-        diseaseDescription.textContent = message;
-        confidenceLevel.textContent = ""; // Clear confidence level
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            background: ${type === 'error' ? '#fef2f2' : '#f0fdf4'};
+            border: 1px solid ${type === 'error' ? '#fecaca' : '#bbf7d0'};
+            border-radius: 12px;
+            color: ${type === 'error' ? '#dc2626' : '#16a34a'};
+            font-weight: 600;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            z-index: 3000;
+            animation: fadeSlideUp 0.3s ease-out;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
     }
 
-    // Remove Image button functionality
-    removeImageBtn.addEventListener('click', () => {
-        uploadedImage.classList.add('hidden');
-        analyzeBtn.classList.add('hidden');
-        removeImageBtn.classList.add('hidden');
-        resultSection.classList.add('hidden');
-        imageUpload.value = "";  // Clear the file input
-        clearResults(); // Clear results
-    });
-});
+    // ==========================================================================
+    // Start
+    // ==========================================================================
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+})();

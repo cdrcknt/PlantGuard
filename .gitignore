@@ -1,1 +1,145 @@
+# ===========================================
+# PlantGuard - Git Ignore Configuration
+# ===========================================
+
+# ------------------------------------------
+# 🔒 PROTECTED FILES - Model & Trained Weights
+# ------------------------------------------
+# The trained model file (your hard work!)
+*.pth
+*.pt
+*.h5
+*.pkl
+*.joblib
+*.onnx
+plantguard_model.*
+models/
+weights/
+checkpoints/
+
+# ------------------------------------------
+# 🐍 Python
+# ------------------------------------------
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
 venv/
+ENV/
+env/
+.venv/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ------------------------------------------
+# 🌐 Environment & Secrets
+# ------------------------------------------
+.env
+.env.local
+.env.*.local
+*.env
+.secrets
+secrets.json
+config.local.py
+
+# ------------------------------------------
+# 💻 IDE & Editors
+# ------------------------------------------
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+
+# Cursor
+.cursor/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# Spyder
+.spyderproject
+.spyproject
+
+# ------------------------------------------
+# 🖥️ OS Generated
+# ------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+.directory
+
+# ------------------------------------------
+# 📦 Misc
+# ------------------------------------------
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+*.cache
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Test outputs
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Flask
+instance/
+.webassets-cache
+
+# Uploads (if any user uploads)
+uploads/
+uploaded_images/
